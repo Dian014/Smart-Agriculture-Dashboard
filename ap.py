@@ -19,12 +19,6 @@ import os
 from PIL import Image
 from rapidfuzz import process, fuzz
 
--------------------------------------------------
-
-Page configuration (EN, Global)
-
--------------------------------------------------
-
 st.set_page_config( page_title="Global Smart Agriculture Dashboard", layout="wide" )
 
 ------------------ Theme state ------------------
