@@ -11,3 +11,7 @@ xlsxwriter
 openpyxl
 pytz
 rapidfuzz
+reportlab
+python-docx
+python-pptx
+odfpy
