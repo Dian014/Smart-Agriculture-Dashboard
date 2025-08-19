@@ -8,6 +8,7 @@ from streamlit_folium import st_folium
 from sklearn.linear_model import LinearRegression
 from datetime import datetime as dt
 from io import BytesIO
+
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
