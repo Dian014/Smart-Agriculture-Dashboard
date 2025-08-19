@@ -4,10 +4,10 @@ import json
 import numpy as np
 import folium
 import pandas as pd
-from streamlit_folium import st_folium
-from sklearn.linear_model import LinearRegression
-from datetime import datetime as dt
 from io import BytesIO
+from datetime import datetime as dt
+from sklearn.linear_model import LinearRegression
+from streamlit_folium import st_folium
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -22,17 +22,9 @@ st.set_page_config(
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 
-# ------------------ Sidebar ------------------
-st.sidebar.title("⚙️ Settings")
-if st.sidebar.button("🌞 Light Mode"):
-    st.session_state.dark_mode = False
-if st.sidebar.button("🌙 Dark Mode"):
-    st.session_state.dark_mode = True
-
 # ------------------ Custom CSS ------------------
 def set_custom_style():
     dark = st.session_state.dark_mode
-
     if dark:
         sidebar_bg = "#4CAF50"  # green paddy
         body_bg = "linear-gradient(135deg, #0D47A1, #000000)"  # dark blue to black
@@ -109,8 +101,6 @@ def recommend_fertilizer(crop_type, soil_n, soil_p, soil_k):
         "corn": {"N": 120, "P": 60, "K": 40},
         "soybean": {"N": 80, "P": 40, "K": 40},
         "wheat": {"N": 110, "P": 55, "K": 50},
-        "cocoa": {"N": 90, "P": 50, "K": 60},
-        "palm oil": {"N": 150, "P": 70, "K": 80}
     }
     target = recs.get(crop_type.lower(), {"N": 90, "P": 45, "K": 45})
     return {
@@ -119,29 +109,32 @@ def recommend_fertilizer(crop_type, soil_n, soil_p, soil_k):
         "K": max(target["K"] - soil_k, 0),
     }
 
-def export_pdf(dataframe, filename="report.pdf"):
+def export_pdf(df):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
-    story = [Paragraph("Smart Agriculture & Plantation Report", styles['Title']), Spacer(1, 12)]
-    table_data = [list(dataframe.columns)] + dataframe.values.tolist()
-    table = Table(table_data)
+    elements = []
+    elements.append(Paragraph("Commodity Prices Report", styles["Heading1"]))
+    elements.append(Spacer(1, 12))
+
+    data = [df.columns.tolist()] + df.values.tolist()
+    table = Table(data)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0D47A1")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#A5D6A7")),
     ]))
-    story.append(table)
-    doc.build(story)
+    elements.append(table)
+    doc.build(elements)
     buffer.seek(0)
     return buffer
 
 # ------------------ Layout ------------------
 st.title("🌱 Smart Agriculture & Plantation Dashboard")
 
-# Weather Insights
+# Weather
 st.markdown('<div class="feature-list">☁️ Weather Insights</div>', unsafe_allow_html=True)
 lat = st.number_input("Latitude", value=-3.8)
 lon = st.number_input("Longitude", value=120.0)
@@ -150,14 +143,14 @@ temperature = st.slider("Temperature (°C)", 10, 40, 26)
 soil_moisture = st.slider("Soil Moisture (%)", 0, 100, 35)
 st_folium(plot_precipitation_map(lat, lon, rainfall), width=700, height=450)
 
-# Yield Prediction
+# Yield
 st.markdown('<div class="feature-list">📈 Yield Prediction</div>', unsafe_allow_html=True)
 pred = predict_yield(rainfall, temperature, soil_moisture)
 st.success(f"Estimated yield: {pred:.2f} tons/ha")
 
-# Fertilizer Recommendation
+# Fertilizer
 st.markdown('<div class="feature-list">🌾 Fertilizer Recommendation</div>', unsafe_allow_html=True)
-crop = st.selectbox("Select Crop", ["Rice", "Corn", "Soybean", "Wheat", "Cocoa", "Palm Oil"])
+crop = st.selectbox("Select Crop", ["Rice", "Corn", "Soybean", "Wheat"])
 soil_n = st.number_input("Soil Nitrogen (N)", min_value=0)
 soil_p = st.number_input("Soil Phosphorus (P)", min_value=0)
 soil_k = st.number_input("Soil Potassium (K)", min_value=0)
@@ -165,30 +158,43 @@ if st.button("Get Recommendation"):
     rec = recommend_fertilizer(crop, soil_n, soil_p, soil_k)
     st.success(f"N={rec['N']}, P={rec['P']}, K={rec['K']}")
 
-# Commodity Prices
+# Commodities
 st.markdown('<div class="feature-list">💹 Global Commodity Prices</div>', unsafe_allow_html=True)
 commodities = {
-    "Rice": 450,
-    "Corn": 320,
-    "Soybean": 580,
-    "Wheat": 400,
-    "Cocoa": 3100,
-    "Palm Oil": 900
+    "Rice": 520,
+    "Corn": 260,
+    "Soybean": 480,
+    "Wheat": 310,
+    "Coffee": 2100,
+    "Cocoa": 3400,
+    "Palm Oil": 950,
+    "Tea": 3200,
+    "Sugar": 450,
+    "Cotton": 1900
 }
 df_prices = pd.DataFrame(list(commodities.items()), columns=["Commodity", "Price (USD/ton)"])
 st.dataframe(df_prices, use_container_width=True)
 
-# Export Section
+# Export
 st.markdown('<div class="feature-list">📑 Export Report</div>', unsafe_allow_html=True)
 col1, col2 = st.columns(2)
+
+# Excel Export
+excel_buffer = BytesIO()
+with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+    df_prices.to_excel(writer, index=False, sheet_name="Commodities")
+excel_buffer.seek(0)
 with col1:
     st.download_button(
         "⬇️ Download Prices as Excel",
-        df_prices.to_excel("commodities.xlsx", index=False),
-        file_name="commodities.xlsx"
+        data=excel_buffer,
+        file_name="commodities.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+# PDF Export
+pdf_buffer = export_pdf(df_prices)
 with col2:
-    pdf_buffer = export_pdf(df_prices)
     st.download_button(
         "⬇️ Download Prices as PDF",
         data=pdf_buffer,
