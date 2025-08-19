@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime as dt
 from io import BytesIO
 
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
@@ -24,12 +24,25 @@ if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 
 # ------------------ Constants ------------------
-UPLOAD_DIR = "uploads"
 REPORT_FILE = "global_reports.json"
 PRICE_FILE = "global_commodity_prices.json"
 TODO_FILE = "daily_tasks.json"
 
 # ------------------ Functions ------------------
+
+# Safe JSON Loader
+def safe_load_json(file_path):
+    if not os.path.exists(file_path):
+        return []
+    try:
+        with open(file_path, "r") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def save_json(file_path, data):
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=2)
 
 # Precipitation Map
 def plot_precipitation_map(lat, lon, rainfall):
@@ -73,14 +86,10 @@ def recommend_fertilizer(crop_type, soil_n, soil_p, soil_k):
 
 # Commodity Prices
 def load_prices():
-    if not os.path.exists(PRICE_FILE):
-        return []
-    with open(PRICE_FILE, "r") as f:
-        return json.load(f)
+    return safe_load_json(PRICE_FILE)
 
 def save_prices(data):
-    with open(PRICE_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    save_json(PRICE_FILE, data)
 
 def update_price(commodity, price):
     data = load_prices()
@@ -90,14 +99,10 @@ def update_price(commodity, price):
 
 # Reports
 def load_reports():
-    if not os.path.exists(REPORT_FILE):
-        return []
-    with open(REPORT_FILE, "r") as f:
-        return json.load(f)
+    return safe_load_json(REPORT_FILE)
 
 def save_reports(data):
-    with open(REPORT_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    save_json(REPORT_FILE, data)
 
 def add_report(report_type, description):
     reports = load_reports()
@@ -107,14 +112,10 @@ def add_report(report_type, description):
 
 # Task Manager
 def load_tasks():
-    if not os.path.exists(TODO_FILE):
-        return []
-    with open(TODO_FILE, "r") as f:
-        return json.load(f)
+    return safe_load_json(TODO_FILE)
 
 def save_tasks(data):
-    with open(TODO_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    save_json(TODO_FILE, data)
 
 def add_task(task):
     tasks = load_tasks()
@@ -141,7 +142,7 @@ def generate_pdf(prices_df, reports_df):
     if not prices_df.empty:
         elements.append(Paragraph("💹 Commodity Prices", styles["Heading2"]))
         table_data = [list(prices_df.columns)] + prices_df.values.tolist()
-        table = Table(table_data)
+        table = Table(table_data, repeatRows=1)
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4CAF50")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -150,13 +151,13 @@ def generate_pdf(prices_df, reports_df):
             ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#E8F5E9"))
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 12))
+        elements.append(PageBreak())
 
     # Reports
     if not reports_df.empty:
         elements.append(Paragraph("📝 Reports", styles["Heading2"]))
         table_data = [list(reports_df.columns)] + reports_df.values.tolist()
-        table = Table(table_data)
+        table = Table(table_data, repeatRows=1)
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2196F3")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -171,7 +172,6 @@ def generate_pdf(prices_df, reports_df):
     return buffer
 
 # ------------------ Layout ------------------
-
 st.title("🌱 Smart Agriculture & Plantation Dashboard")
 
 # Weather Insights
@@ -192,14 +192,15 @@ st.success(f"Estimated yield: {pred_yield:.2f} tons/ha")
 
 # Fertilizer
 st.header("🌾 Fertilizer Recommendation")
-crop = st.selectbox("Select Crop", ["Rice", "Corn", "Soybean", "Wheat"])
-soil_n = st.number_input("Soil Nitrogen (N)", min_value=0)
-soil_p = st.number_input("Soil Phosphorus (P)", min_value=0)
-soil_k = st.number_input("Soil Potassium (K)", min_value=0)
-
-if st.button("Get Recommendation"):
-    rec = recommend_fertilizer(crop, soil_n, soil_p, soil_k)
-    st.success(f"Recommended additional nutrients for {crop}: N={rec['N']}, P={rec['P']}, K={rec['K']}")
+with st.form("fertilizer_form"):
+    crop = st.selectbox("Select Crop", ["Rice", "Corn", "Soybean", "Wheat"])
+    soil_n = st.number_input("Soil Nitrogen (N)", min_value=0)
+    soil_p = st.number_input("Soil Phosphorus (P)", min_value=0)
+    soil_k = st.number_input("Soil Potassium (K)", min_value=0)
+    submitted = st.form_submit_button("Get Recommendation")
+    if submitted:
+        rec = recommend_fertilizer(crop, soil_n, soil_p, soil_k)
+        st.success(f"Recommended additional nutrients for {crop}: N={rec['N']}, P={rec['P']}, K={rec['K']}")
 
 # Commodity Prices
 st.header("💹 Global Commodity Prices")
@@ -209,12 +210,14 @@ commodity_options = [
     "Tea", "Sugarcane", "Cotton", "Tobacco",
     "Clove", "Pepper", "Nutmeg", "Cinnamon"
 ]
-selected_commodity = st.selectbox("Select Commodity", commodity_options)
-price = st.number_input("Enter price (USD/ton)", min_value=0.0, step=1.0)
 
-if st.button("Add Price"):
-    update_price(selected_commodity, price)
-    st.success(f"✅ Added price for {selected_commodity}: ${price:.2f} per ton")
+with st.form("price_form"):
+    selected_commodity = st.selectbox("Select Commodity", commodity_options)
+    price = st.number_input("Enter price (USD/ton)", min_value=0.0, step=1.0)
+    submitted = st.form_submit_button("Add Price")
+    if submitted:
+        update_price(selected_commodity, price)
+        st.success(f"✅ Added price for {selected_commodity}: ${price:.2f} per ton")
 
 st.subheader("📊 Latest Prices")
 prices = load_prices()
@@ -227,12 +230,13 @@ else:
 
 # Reports
 st.header("📝 Reports")
-report_type = st.selectbox("Report Type", ["Pest & Disease", "Weather Anomaly", "Logistics", "Market"])
-description = st.text_area("Description")
-
-if st.button("Submit Report"):
-    add_report(report_type, description)
-    st.success("Report submitted successfully!")
+with st.form("report_form"):
+    report_type = st.selectbox("Report Type", ["Pest & Disease", "Weather Anomaly", "Logistics", "Market"])
+    description = st.text_area("Description")
+    submitted = st.form_submit_button("Submit Report")
+    if submitted:
+        add_report(report_type, description)
+        st.success("Report submitted successfully!")
 
 st.subheader("📂 All Reports")
 reports = load_reports()
