@@ -22,6 +22,13 @@ st.set_page_config(
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 
+# ------------------ Sidebar ------------------
+st.sidebar.title("⚙️ Settings")
+if st.sidebar.button("🌞 Light Mode"):
+    st.session_state.dark_mode = False
+if st.sidebar.button("🌙 Dark Mode"):
+    st.session_state.dark_mode = True
+
 # ------------------ Custom CSS ------------------
 def set_custom_style():
     dark = st.session_state.dark_mode
@@ -175,12 +182,11 @@ st.dataframe(df_prices, use_container_width=True)
 st.markdown('<div class="feature-list">📑 Export Report</div>', unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
-    if st.download_button(
+    st.download_button(
         "⬇️ Download Prices as Excel",
         df_prices.to_excel("commodities.xlsx", index=False),
         file_name="commodities.xlsx"
-    ):
-        st.success("Excel file exported successfully!")
+    )
 with col2:
     pdf_buffer = export_pdf(df_prices)
     st.download_button(
