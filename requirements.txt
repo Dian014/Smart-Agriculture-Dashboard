@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+requests
+plotly
+folium
+scikit-learn
+streamlit-folium
+openai
+xlsxwriter
+openpyxl
+pytz
+rapidfuzz
